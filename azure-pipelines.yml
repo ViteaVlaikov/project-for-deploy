@@ -1,0 +1,38 @@
+trigger: 
+- main
+
+pool: 
+   vmImage: windows-latest
+
+jobs:
+- job: Build
+  displayName: 'Build Maven Project'
+  steps:
+  - task: Maven@3
+    inputs:
+      mavenPomFile: 'pom.xml'
+      goals: 'clean package'
+
+- deployment: DeployToVM
+  displayName: 'Deploy to Virtual Machine'
+  dependsOn: Build
+  environment: 
+    name: VMenv
+    resourceType: virtualMachine
+    resourceName: VEKTOR
+  strategy:
+    runOnce:
+      deploy:   
+        steps:
+        - task: CopyFiles@2
+          inputs:
+            SourceFolder: '$(Build.SourcesDirectory)/target'
+            Contents: '**/*.jar'
+            TargetFolder: '\\deployment\\directory' # Замените на путь на вашей виртуальной машине
+        - task: PowerShell@2
+          inputs:
+            targetType: 'inline'
+            script: |
+              $jarFile = Get-ChildItem -Path "$(Build.SourcesDirectory)/target" -Filter "*.jar" | Select-Object -ExpandProperty FullName
+              Copy-Item -Path $jarFile -Destination '\\deployment\directory' -Force
+              # Здесь вы можете добавить дополнительные команды для развертывания приложения, если это необходимо
